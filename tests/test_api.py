@@ -4,7 +4,13 @@ from pathlib import Path
 import httpx
 
 from kv_cache_quality_benchmark import api
-from kv_cache_quality_benchmark.models import Experiment, Fixture, InferenceResult, KVConfig, Outcome
+from kv_cache_quality_benchmark.models import (
+    Experiment,
+    Fixture,
+    InferenceResult,
+    KVConfig,
+    Outcome,
+)
 from kv_cache_quality_benchmark.storage import Store
 
 

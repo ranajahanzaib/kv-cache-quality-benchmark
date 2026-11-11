@@ -2,9 +2,19 @@ from pathlib import Path
 
 from kv_cache_quality_benchmark.config import load_config
 from kv_cache_quality_benchmark.fixtures import generate_fixtures, resize_fixtures
-from kv_cache_quality_benchmark.measurement import parse_context_metadata, parse_kv_allocation, response_timings
+from kv_cache_quality_benchmark.measurement import (
+    parse_context_metadata,
+    parse_kv_allocation,
+    response_timings,
+)
 from kv_cache_quality_benchmark.metrics import heatmap, summarize
-from kv_cache_quality_benchmark.models import Experiment, Fixture, InferenceResult, KVConfig, Outcome
+from kv_cache_quality_benchmark.models import (
+    Experiment,
+    Fixture,
+    InferenceResult,
+    KVConfig,
+    Outcome,
+)
 from kv_cache_quality_benchmark.pairing import pair_results
 from kv_cache_quality_benchmark.scoring import classify_pair, score
 from kv_cache_quality_benchmark.storage import Store, export_csv, export_json, markdown_report
