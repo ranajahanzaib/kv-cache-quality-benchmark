@@ -1,0 +1,9 @@
+# Methodology
+
+KV Cache Quality Benchmark uses paired fixture IDs across independently started llama.cpp servers. The GGUF SHA-256, executable SHA-256, runtime version, hardware, runtime capabilities, and fixture/config manifest digest are captured. Each input is serialized with the loaded model's `/apply-template` endpoint, tokenized by `/tokenize`, and token IDs are compared across cache configurations before scoring. The identical serialized prompt is submitted to `/completion`; temperature, top-k, output-token budget, and seed are explicit, with effective settings checked when returned.
+
+Ground truth is generated with each fictional fixture, independent of model output. Controlled identifiers are scored conservatively after trimming whitespace, quote/punctuation wrappers, and case folding. Unanswerable questions score only an explicit abstention as correct; any concrete response is an unsupported assertion. This is a small exploratory suite, not a population estimate or universal model-quality claim.
+
+For each configured context, the generator targets a full serialized input length of 72% of context within 5%, and reserves the output budget. Fictional operational filler is grown using the model's tokenizer. Fact insertion positions are measured as token offsets within the serialized prompt. An unreachable target is marked invalid with its actual count and a reason. The same fixture manifest is reused across cache formats within a context; fixture IDs include the context bucket because filler lengths differ.
+
+Preflight starts a server for each configuration, checks health, renders a model prompt, and completes a non-scored request. Because builds often do not echo effective K/V precision, successful inference is reported as `unverified` unless logs confirm both requested types.

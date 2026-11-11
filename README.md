@@ -1,56 +1,124 @@
-# Project Title
+# KV Cache Quality Benchmark
 
-[![GitHub license](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE) [![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-brightgreen.svg)](./CONTRIBUTING.md)
+**Measure what KV-cache compression costs your model.**
 
-One-line description of what this project does and who it's for.
+A local, reproducible test harness for comparing answer correctness, long-context fact retention, and memory use across llama.cpp KV-cache configurations. It runs against your GGUF and llama.cpp installation; it does not download models or call cloud services.
 
-## Features
+## What it measures
 
-- Feature one
-- Feature two
-- Feature three
+KV Cache Quality Benchmark sends the same serialized prompt to the same model artifact under F16, Q8, Q4, and mixed K/V cache formats. It records tokenizer IDs, short-answer scores against fixture-defined ground truth, llama.cpp timing metadata when available, and sampled process RSS. Unsupported formats and invalid inputs are excluded from accuracy scores. The F16 result is a reference point, not an oracle: absolute ground-truth accuracy and baseline-conditioned retention answer different questions.
 
-## Getting Started
+The fixture suite includes needle retrieval, independent critical-fact questions, similar-ID distractors, multi-fact questions, and unanswerable prompts. Each complete serialized prompt is resized to a 72% context target within a 5% tolerance using the selected model's tokenizer; actual token count and fact position are stored. Unreachable targets and prompt-plus-output overflow are marked invalid. Results from small synthetic samples are exploratory.
 
-### Prerequisites
+## Requirements
 
-List anything the user needs to have installed before they can use this project.
+- Python 3.12 or newer and [uv](https://docs.astral.sh/uv/)
+- A local `llama-server` build and user-provided GGUF model
+- macOS Apple Silicon is the primary target; Linux is expected to work when the installed llama.cpp build exposes the required options
 
-### Installation
+No CUDA, Docker, hosted service, or bundled model weights are required. The selected llama.cpp build determines the inference backend; KV Cache Quality Benchmark records backend information when the build reports it and does not select a backend itself. For macOS Metal, build the official [llama.cpp project](https://github.com/ggml-org/llama.cpp) with its documented Metal support. KV Cache Quality Benchmark inspects the binary's own `--help` and `--version` output.
 
-```bash
-# Clone the repository
-git clone https://github.com/username/repo-name.git
-cd repo-name
-
-# Install dependencies
-# add your install command here
-```
-
-### Usage
+## Install
 
 ```bash
-# Add your run command here
+git clone https://github.com/ranajahanzaib/kv-cache-quality-benchmark.git
+cd kv-cache-quality-benchmark
+uv sync --locked
 ```
 
-## Contributing
+Point the tool at a compatible GGUF and server executable (or put `llama-server` on `PATH`). A concrete smoke-test artifact is Qwen's official `Qwen2.5-3B-Instruct-GGUF` `qwen2.5-3b-instruct-q4_k_m.gguf` (about 2.1 GB):
 
-We'd love to accept your patches and contributions to this project. There are just a few guidelines you need to follow.
+```bash
+mkdir -p models
+curl -L -o models/qwen2.5-3b-instruct-q4_k_m.gguf \
+  https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf
+shasum -a 256 models/qwen2.5-3b-instruct-q4_k_m.gguf
+# Expected SHA-256: 626b4a6678b86442240e33df819e00132d3ba7dddfe1cdc4fbb18e0a9615c62d
+```
 
-### [Code of Conduct](./CODE_OF_CONDUCT.md)
+The model is under the [Qwen Research License Agreement](https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/blob/main/LICENSE), which restricts use to non-commercial purposes unless separately licensed. Review that license before use. The model repository provides the file and checksum; KV Cache Quality Benchmark does not bundle or fetch weights.
 
-This project follows the [Contributor Covenant](https://www.contributor-covenant.org/) as its Code of Conduct, and we expect all project participants to adhere to it. Kindly read the [full guide](./CODE_OF_CONDUCT.md) to understand what actions will not be tolerated.
+For an Apple Silicon source build, llama.cpp enables Metal by default on macOS:
 
-### [Contributing Guide](./CONTRIBUTING.md)
+```bash
+git clone https://github.com/ggml-org/llama.cpp.git
+cd llama.cpp
+cmake -B build
+cmake --build build --config Release -j 8 --target llama-server
+```
 
-Read our [contributing guide](./CONTRIBUTING.md) to learn about our development process, how to propose bug fixes and improvements, and how to build and test your changes to the project.
+See the [llama.cpp build guide](https://github.com/ggml-org/llama.cpp/blob/master/docs/build.md) for current platform options. Alternatively install a packaged build, then check its options with `uv run kv-cache-quality-benchmark doctor`.
 
-### Issues
+## Run
 
-Feel free to submit issues and enhancement requests. Use the template provided when creating an issue to ensure your request is clear and actionable.
+```bash
+uv run kv-cache-quality-benchmark doctor
+uv run kv-cache-quality-benchmark probe --model ./models/qwen2.5-3b-instruct-q4_k_m.gguf
+uv run kv-cache-quality-benchmark run --model ./models/qwen2.5-3b-instruct-q4_k_m.gguf --preset smoke
+uv run kv-cache-quality-benchmark generate --model ./models/qwen2.5-3b-instruct-q4_k_m.gguf --preset smoke --seed 42
+uv run kv-cache-quality-benchmark report <experiment-id>
+```
 
-See the open issues for a complete list of proposed features (and known issues).
+Presets: `smoke` uses a 2K context, three K/V configurations, and one generated case per workload; `standard` uses 2K, 4K, and 8K contexts with F16, Q8, and Q4; `extended` uses 2K, 4K, 8K, and 16K contexts with all four built-in configurations and three repetitions. Standard generates five cases per workload and extended generates twelve. Override contexts, fixture count, selected config IDs, repetitions, and GPU layers with CLI options. `--help` lists all commands and arguments. Requested contexts must fit the model's supported context; unsupported lengths are reported.
 
-## [License](./LICENSE)
+The CLI writes results to `~/.kv_cache_quality_benchmark/experiments.sqlite3` by default. Export a saved run with its printed ID:
 
-This project is licensed under the [MIT License](./LICENSE), meaning that you're free to modify, distribute, and/or use it for any commercial or private project.
+```bash
+uv run kv-cache-quality-benchmark export <experiment-id> --output ./reports
+```
+
+This produces JSON, CSV, and Markdown. The JSON includes individual prompts, expected answers, answers, scores, timing data, token IDs, and unsupported configurations.
+
+## Dashboard
+
+The CLI does not require Node.js. Building the dashboard requires Node.js 20 or newer and pnpm.
+
+For UI development, run the API and Vite in separate terminals. In terminal 1:
+
+```bash
+uv run kv-cache-quality-benchmark dashboard
+```
+
+In terminal 2:
+
+```bash
+cd frontend
+pnpm install
+pnpm run dev
+```
+
+Open the Vite URL printed in terminal 2. It proxies API requests to `127.0.0.1:8000`.
+
+To serve the bundled UI after building it:
+
+```bash
+(cd frontend && pnpm install && pnpm run build)
+uv run kv-cache-quality-benchmark dashboard
+```
+
+The dashboard browses saved results and clearly labels process RSS; it does not claim RSS is KV allocation. Its API has no authentication and binds to loopback by default; do not expose it to an untrusted network.
+
+Use a checked-in YAML preset with `uv run kv-cache-quality-benchmark run --config configs/smoke.yaml`. CLI arguments override preset values. The runner checkpoints completed trials to SQLite and JSONL, so interruption preserves finished attempts.
+
+## Scoring and interpretation
+
+Identifier answers use conservative exact matching with whitespace, quote/punctuation wrapper, and case normalization. Contradictory prose is not accepted. Unanswerable questions require `NOT_FOUND` (or a narrow explicit abstention) and a fabricated value is an unsupported assertion. Pairing distinguishes preserved successes, regressions, improvements, persistent failures, and unavailable comparisons.
+
+Configured context capacity and actual prompt token count are separate. llama.cpp `/apply-template` serializes messages with the loaded model's chat template. The server tokenizer produces token IDs, and the runner checks identical IDs across configurations. Inputs that exceed context plus generation budget are skipped rather than silently truncated. Fact positions are measured from the serialized prompt prefix in token space. Context-specific fixtures preserve the same underlying facts while changing fictional filler length.
+
+RSS is a point sample of process-resident memory and includes more than KV storage. KV allocation remains unavailable unless llama.cpp exposes a trustworthy measurement. Timing fields vary by llama.cpp build. Greedy decoding can still vary across hardware/builds. A result applies only to the recorded model hash, runtime, hardware, fixture set, and settings. Do not generalize a small sample or call a cache format safe based on no observed failures.
+
+## Development
+
+```bash
+uv sync --locked --extra dev
+uv run pytest
+uv run ruff check src tests
+uv run mypy src/kv_cache_quality_benchmark
+```
+
+CI does not download model weights or run expensive inference. For design details see [methodology](docs/methodology.md), [metrics](docs/metrics.md), [limitations](docs/limitations.md), and [reproducibility](docs/reproducibility.md). KV Cache Quality Benchmark is MIT licensed. [llama.cpp is separately MIT licensed by the ggml authors](https://github.com/ggml-org/llama.cpp/blob/master/LICENSE); model weights remain under their own licenses. Check the terms for the model you use.
+
+## Contributing and security
+
+See the [contribution guide](CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md) before opening an issue or pull request. Report vulnerabilities using the process in the [security policy](.github/SECURITY.md), not in public issues.

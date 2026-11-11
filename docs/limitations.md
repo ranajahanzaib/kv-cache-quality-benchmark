@@ -1,0 +1,3 @@
+# Limitations
+
+The MVP is a local llama.cpp tool. It requires a compatible GGUF and `llama-server`; no model weights are bundled. The synthetic suite remains exploratory and is not a broad quality benchmark. RSS sampling is periodic but approximate; Metal allocation is not available through a stable cross-version API. KV log extraction only recognizes explicit allocation messages, and cache precision may remain unverified if the runtime does not print its effective type. Timing metadata depends on the installed response schema. Confidence intervals and richer repetition-variance estimates are not yet shown. Results should be interpreted only for the exact artifact, runtime, hardware, and settings recorded.
