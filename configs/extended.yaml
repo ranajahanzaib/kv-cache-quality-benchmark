@@ -1,0 +1,28 @@
+experiment:
+  name: kv-cache-quality-benchmark-extended
+  seed: 42
+  repetitions: 3
+  preset: extended
+runtime:
+  binary: llama-server
+  model: ../models/qwen2.5-3b-instruct-q4_k_m.gguf
+  gpu_layers: all
+  flash_attention: "on"
+  parallel: 1
+  prompt_cache: false
+  context_shift: false
+  auto_fit: false
+generation:
+  temperature: 0
+  max_output_tokens: 64
+  seed: 42
+contexts: [2048, 4096, 8192, 16384]
+cache_configs:
+  - { id: baseline, key: f16, value: f16 }
+  - { id: q8, key: q8_0, value: q8_0 }
+  - { id: q4, key: q4_0, value: q4_0 }
+  - { id: mixed, key: q8_0, value: q4_0 }
+workloads: [needle, retention, distractor, multi_fact, unanswerable]
+measurement:
+  process_memory: true
+  sample_interval_ms: 100
