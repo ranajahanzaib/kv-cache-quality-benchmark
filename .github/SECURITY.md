@@ -4,6 +4,6 @@
 
 Please do not report security vulnerabilities through public GitHub issues.
 
-Instead, report them via GitHub's private [Security Advisories](../../security/advisories/new) feature. Include as much detail as possible: a description of the issue, steps to reproduce, and potential impact.
+Use this repository's [private vulnerability reporting page](https://github.com/ranajahanzaib/kv-cache-quality-benchmark/security/advisories/new). If private reporting is unavailable, contact the project owner through the [owner's GitHub profile](https://github.com/ranajahanzaib). Include a description of the issue, steps to reproduce, and its potential impact. Do not include credentials or private user data unless they are essential to demonstrate the issue.
 
-You can expect an acknowledgment within 48 hours and a resolution timeline once the issue is confirmed.
+The project team will acknowledge reports as soon as practical and coordinate next steps privately.

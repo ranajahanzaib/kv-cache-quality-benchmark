@@ -1,19 +1,19 @@
 ---
 name: Feature request
-about: Suggest an idea for this project
-title: ''
+about: Propose an improvement to KV Cache Quality Benchmark
+title: ""
 labels: enhancement
-assignees: ''
+assignees: ""
 ---
 
-**Is your feature request related to a problem? Please describe.**
-A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]
+## Problem
 
-**Describe the solution you'd like**
-A clear and concise description of what you want to happen.
+What task or limitation would this address?
 
-**Describe alternatives you've considered**
-A clear and concise description of any alternative solutions or features you've considered.
+## Proposed change
 
-**Additional context**
-Add any other context or screenshots about the feature request here.
+Describe the behavior you would like and any alternatives you considered.
+
+## Additional context
+
+Add examples or references that help explain the request. Do not include credentials or private data.

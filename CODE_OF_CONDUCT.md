@@ -58,10 +58,10 @@ representative at an online or offline event.
 
 ## Enforcement
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported to the community leaders responsible for enforcement at
-[INSERT CONTACT METHOD].
-All complaints will be reviewed and investigated promptly and fairly.
+To report a Code of Conduct concern, contact the project owner through the
+contact options on the [project owner's GitHub profile](https://github.com/ranajahanzaib).
+Do not post reports or personal information in public issues. Reports will be reviewed as promptly
+and fairly as possible.
 
 All community leaders are obligated to respect the privacy and security of the
 reporter of any incident.

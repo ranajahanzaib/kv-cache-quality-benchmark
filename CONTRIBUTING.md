@@ -1,46 +1,33 @@
-## Contributing
+# Contributing
 
-We welcome contributions of all kinds to improve this project! Here's how you can get involved:
+Contributions that improve correctness, reproducibility, documentation, or usability are welcome.
 
-1. **Fork the Repository**: Start by forking the repository to your GitHub account.
+## Development setup
 
-2. **Clone Your Fork**: Clone the forked repository to your local machine:
+Install the Python development dependencies and dashboard dependencies:
 
-   ```bash
-   git clone <repo_url>
-   cd repo_dir
-   ```
+```bash
+uv sync --locked --extra dev
+(cd frontend && pnpm install)
+```
 
-3. **Create a Branch**: Create a new branch for your feature or bug fix:
+Run the local checks before opening a pull request:
 
-   ```bash
-   git checkout -b feature-name
-   ```
+```bash
+uv run ruff check src tests
+uv run mypy src/kv_cache_quality_benchmark
+uv run pytest
+cd frontend && pnpm run build
+```
 
-4. **Make Changes**: Make your changes to the codebase. Be sure to follow existing code style and conventions.
+Tests use mocked runtime responses and do not download models. Real inference checks require a
+locally available `llama-server` and GGUF model; do not add model weights or generated benchmark
+results to pull requests.
 
-5. **Commit Changes**: Commit your changes with a clear and descriptive message:
+## Changes and pull requests
 
-   ```bash
-   git commit -m "Add detailed description of the changes"
-   ```
+Open an issue for substantial changes so the scope can be discussed. Pull requests should explain
+the user-visible change, include focused tests for behavior changes, and update documentation when
+commands or output change. Include relevant check results and note any checks that could not run.
 
-6. **Push Changes**: Push your changes to your fork:
-
-   ```bash
-   git push origin feature-name
-   ```
-
-7. **Submit a Pull Request**: Open a pull request from your branch to the main repository's branch. Include a detailed description of your changes and the problem they solve.
-
-8. **Review and Feedback**: Participate in the review process. Make any requested changes, and your contribution will be merged!
-
-### Guidelines
-
-- Ensure your code follows the existing style and conventions.
-- Include tests for any new functionality or bug fixes.
-- Write clear, concise commit messages and pull request descriptions.
-
-### Issues
-
-Feel free to report bugs or suggest enhancements by creating an issue. Be sure to include detailed information about the problem and, if possible, steps to reproduce it.
+Never include API keys, credentials, private data, or unredacted logs in issues or pull requests.
