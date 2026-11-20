@@ -38,5 +38,8 @@ def test_dashboard_api_lists_summaries_and_filters(tmp_path: Path, monkeypatch):
             results = await client.get("/api/experiments/api-run/results?workload=needle")
             assert len(results.json()) == 1
             assert (await client.get("/api/experiments/missing")).status_code == 404
+            root_res = await client.get("/")
+            assert root_res.status_code == 200
+            assert "text/html" in root_res.headers.get("content-type", "")
 
     asyncio.run(check_api())
