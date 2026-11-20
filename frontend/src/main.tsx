@@ -38,6 +38,7 @@ type Result = {
   prompt_tokens: number[];
   timings: Record<string, unknown>;
   end_to_end_ms: number | null;
+  attempt?: number;
 };
 type Pair = {
   fixture_id: string;
@@ -51,6 +52,7 @@ type Pair = {
   candidate_status: string | null;
   candidate_runtime_status: string | null;
   candidate_error: string | null;
+  attempt?: number;
 };
 type Config = { id: string; cache_type_k: string; cache_type_v: string };
 type Exp = {
@@ -88,7 +90,12 @@ function App() {
   React.useEffect(() => {
     fetch("/api/experiments")
       .then((r) => r.json())
-      .then(setExperiments)
+      .then((list) => {
+        setExperiments(list);
+        if (list.length > 0) {
+          open(list[0].id);
+        }
+      })
       .catch(() => setExperiments([]));
   }, []);
   async function open(id: string) {
@@ -164,7 +171,10 @@ function App() {
     const kv = Object.entries(
       exp?.settings.kv_allocation_by_config_context || {},
     )
-      .filter(([k, v]: [string, any]) => k.endsWith(`:${c.id}`) && v.available)
+      .filter(
+        ([k, v]: [string, any]) =>
+          k.endsWith(`:${c.id}`) && v.available && v.total_bytes != null,
+      )
       .map(([k, v]: [string, any]) => ({
         context: Number(k.split(":")[0]),
         bytes: v.total_bytes as number,
@@ -184,7 +194,7 @@ function App() {
             : null,
       reg: pairs.filter((p) => p.classification === "regression").length,
       improve: pairs.filter((p) => p.classification === "improvement").length,
-      rss: rss.length ? Math.max(...rss) : null,
+      rss: rss.length ? rss.reduce((a, b) => Math.max(a, b), 0) : null,
       ms: latency.length
         ? latency.reduce((a, b) => a + b, 0) / latency.length
         : null,
@@ -300,7 +310,7 @@ function App() {
           .map((r) => r.peak_process_rss_bytes)
           .filter((x): x is number => x !== null);
         n = rss.length;
-        value = n ? Math.max(...rss) / 1024 ** 3 : null;
+        value = n ? rss.reduce((a, b) => Math.max(a, b), 0) / 1024 ** 3 : null;
       } else if (metric === "kv") {
         const allocation =
           exp?.settings.kv_allocation_by_config_context?.[`${ctx}:${c.id}`];
@@ -900,7 +910,8 @@ function App() {
                             const r = exp.results.find(
                               (x) =>
                                 x.fixture_id === p.fixture_id &&
-                                x.config_id === p.config_id,
+                                x.config_id === p.config_id &&
+                                (p.attempt == null || x.attempt === p.attempt),
                             );
                             return (
                               <tr key={`${p.fixture_id}-${p.config_id}-${i}`}>
