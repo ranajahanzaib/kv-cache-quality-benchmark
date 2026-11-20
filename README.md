@@ -4,11 +4,33 @@
 
 A local, reproducible test harness for comparing answer correctness, long-context fact retention, and memory use across llama.cpp KV-cache configurations. It runs against your GGUF and llama.cpp installation; it does not download models or call cloud services.
 
+![KV Cache Quality Benchmark Dashboard](docs/screenshots/overview.png)
+
 ## What it measures
 
 KV Cache Quality Benchmark sends the same serialized prompt to the same model artifact under F16, Q8, Q4, and mixed K/V cache formats. It records tokenizer IDs, short-answer scores against fixture-defined ground truth, llama.cpp timing metadata when available, and sampled process RSS. Unsupported formats and invalid inputs are excluded from accuracy scores. The F16 result is a reference point, not an oracle: absolute ground-truth accuracy and baseline-conditioned retention answer different questions.
 
-The fixture suite includes needle retrieval, independent critical-fact questions, similar-ID distractors, multi-fact questions, and unanswerable prompts. Each complete serialized prompt is resized to a 72% context target within a 5% tolerance using the selected model's tokenizer; actual token count and fact position are stored. Unreachable targets and prompt-plus-output overflow are marked invalid. Results from small synthetic samples are exploratory.
+The fixture suite includes:
+
+- **Needle retrieval**: Target facts placed at parameterized depths within long contexts.
+- **Critical fact retention**: Independent factual questions across isolated context passages.
+- **Distractor resistance**: Disambiguation between similar identifier records and plans.
+- **Multi-fact reasoning**: Multi-step dependency queries across disjoint context spans.
+- **Unanswerable prompts**: Explicit abstention validation (`NOT_FOUND`) to detect unsupported assertions.
+
+Each complete serialized prompt is resized to a 72% context target within a 5% tolerance using the selected model's tokenizer; actual token count and fact position are stored. Unreachable targets and prompt-plus-output overflow are marked invalid. Results from small synthetic samples are exploratory.
+
+## Demonstration & UI Gallery
+
+The benchmark provides both an interactive local dashboard and a scriptable CLI with export capabilities.
+
+| View                      | Screenshot                                                                            | Description                                                                                                                                               |
+| ------------------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Overview & Comparison** | [![Overview](docs/screenshots/overview.png)](docs/screenshots/overview.png)           | Configuration comparison matrix (accuracy, baseline retention, regressions, improvements, KV allocations, peak RSS, latency) and context accuracy curves. |
+| **Fidelity vs Memory**    | [![Fidelity vs Memory](docs/screenshots/fidelity.png)](docs/screenshots/fidelity.png) | Explicit runtime KV buffer allocation plotted against baseline-conditioned retention with reference star markers.                                         |
+| **Failure Explorer**      | [![Failure Explorer](docs/screenshots/failures.png)](docs/screenshots/failures.png)   | Paired test regressions browser with ground-truth fact highlighting and side-by-side F16 vs candidate outputs.                                            |
+| **Context Degradation**   | [![Context Degradation](docs/screenshots/context.png)](docs/screenshots/context.png)  | Multi-context scaling lines (2K, 4K, 8K) and token-space fact-position accuracy heatmaps (Beginning, 25%, Middle, 75%, End).                              |
+| **CLI & Terminal Output** | [![CLI Demonstration](docs/screenshots/cli-demo.png)](docs/screenshots/cli-demo.png)  | Terminal execution of `kv-cache-quality-benchmark report` with paired statistics and export to JSON, CSV, and Markdown.                                   |
 
 ## Requirements
 
@@ -18,7 +40,7 @@ The fixture suite includes needle retrieval, independent critical-fact questions
 
 No CUDA, Docker, hosted service, or bundled model weights are required. The selected llama.cpp build determines the inference backend; KV Cache Quality Benchmark records backend information when the build reports it and does not select a backend itself. For macOS Metal, build the official [llama.cpp project](https://github.com/ggml-org/llama.cpp) with its documented Metal support. KV Cache Quality Benchmark inspects the binary's own `--help` and `--version` output.
 
-## Install
+## Installation
 
 ```bash
 git clone https://github.com/ranajahanzaib/kv-cache-quality-benchmark.git
@@ -49,76 +71,119 @@ cmake --build build --config Release -j 8 --target llama-server
 
 See the [llama.cpp build guide](https://github.com/ggml-org/llama.cpp/blob/master/docs/build.md) for current platform options. Alternatively install a packaged build, then check its options with `uv run kv-cache-quality-benchmark doctor`.
 
-## Run
+## Quick Start & CLI Workflows
 
 ```bash
+# 1. Verify your local runtime and environment
 uv run kv-cache-quality-benchmark doctor
+
+# 2. Probe cache format support against your GGUF model
 uv run kv-cache-quality-benchmark probe --model ./models/qwen2.5-3b-instruct-q4_k_m.gguf
-uv run kv-cache-quality-benchmark run --model ./models/qwen2.5-3b-instruct-q4_k_m.gguf --preset smoke
+
+# 3. Generate token-aligned evaluation fixtures
 uv run kv-cache-quality-benchmark generate --model ./models/qwen2.5-3b-instruct-q4_k_m.gguf --preset smoke --seed 42
+
+# 4. Run an experiment (smoke, standard, or extended)
+uv run kv-cache-quality-benchmark run --model ./models/qwen2.5-3b-instruct-q4_k_m.gguf --preset smoke
+
+# 5. Display paired analysis report
 uv run kv-cache-quality-benchmark report <experiment-id>
-```
 
-Presets: `smoke` uses a 2K context, three K/V configurations, and one generated case per workload; `standard` uses 2K, 4K, and 8K contexts with F16, Q8, and Q4; `extended` uses 2K, 4K, 8K, and 16K contexts with all four built-in configurations and three repetitions. Standard generates five cases per workload and extended generates twelve. Override contexts, fixture count, selected config IDs, repetitions, and GPU layers with CLI options. `--help` lists all commands and arguments. Requested contexts must fit the model's supported context; unsupported lengths are reported.
-
-The CLI writes results to `~/.kv_cache_quality_benchmark/experiments.sqlite3` by default. Export a saved run with its printed ID:
-
-```bash
+# 6. Export results as JSON, CSV, and Markdown
 uv run kv-cache-quality-benchmark export <experiment-id> --output ./reports
 ```
 
-This produces JSON, CSV, and Markdown. The JSON includes individual prompts, expected answers, answers, scores, timing data, token IDs, and unsupported configurations.
+### Experiment Presets
 
-## Dashboard
+- **`smoke`**: 2K context, 3 configurations (`baseline`, `q8`, `q4`), 1 test case per workload (24 tokens output).
+- **`standard`**: 2K, 4K, and 8K contexts, 3 configurations (`baseline`, `q8`, `q4`), 5 cases per workload (64 tokens output).
+- **`extended`**: 2K, 4K, 8K, and 16K contexts, 4 configurations (`baseline`, `q8`, `q4`, `mixed`), 12 cases per workload, 3 repetitions.
 
-The CLI does not require Node.js. Building the dashboard requires Node.js 20 or newer and pnpm.
+CLI options allow overriding context lengths, fixture count, selected cache IDs, repetitions, timeout, and GPU layers. Pass `--help` to inspect all options.
 
-For UI development, run the API and Vite in separate terminals. In terminal 1:
+The CLI writes results to `~/.kv-cache-quality-benchmark/experiments.sqlite3` and `~/.kv-cache-quality-benchmark/experiments/<id>.jsonl` by default.
+
+### YAML Configurations
+
+You can also run experiments using checked-in configuration files:
 
 ```bash
+uv run kv-cache-quality-benchmark run --config configs/smoke.yaml
+```
+
+CLI arguments override configuration file values. Completed trials are checkpointed after every iteration, ensuring interrupted runs preserve finished trials.
+
+## Interactive Dashboard
+
+The dashboard provides a visual interface for exploring saved benchmark runs.
+
+Building the dashboard requires Node.js 20 or newer and pnpm.
+
+```bash
+# Build the UI bundle
+(cd frontend && pnpm install && pnpm run build)
+
+# Start the dashboard server
 uv run kv-cache-quality-benchmark dashboard
 ```
 
-In terminal 2:
+Open `http://127.0.0.1:8000/` in your browser.
+
+For frontend development with hot-reloading:
 
 ```bash
+# Terminal 1: Start API server
+uv run kv-cache-quality-benchmark dashboard
+
+# Terminal 2: Start Vite development server
 cd frontend
-pnpm install
 pnpm run dev
 ```
 
-Open the Vite URL printed in terminal 2. It proxies API requests to `127.0.0.1:8000`.
+The Vite dev server proxies API calls directly to `127.0.0.1:8000`.
 
-To serve the bundled UI after building it:
+> [!NOTE]
+> The dashboard API is unauthenticated and binds to loopback (`127.0.0.1`) by default. Do not expose it directly to untrusted networks.
+
+## Scoring and Interpretation
+
+Identifier answers use conservative exact matching with whitespace, quote/punctuation wrapper, and case normalization. Contradictory prose is not accepted. Unanswerable questions require `NOT_FOUND` (or a narrow explicit abstention); a fabricated value is classified as an unsupported assertion.
+
+Pairing evaluates candidate cache configurations against baseline F16 execution on identical prompts:
+
+- **Preserved success**: Baseline correct and candidate correct.
+- **Regression**: Baseline correct but candidate incorrect.
+- **Improvement**: Baseline incorrect but candidate correct.
+- **Persistent failure**: Both baseline and candidate incorrect.
+- **Output disagreement**: Candidate generated an answer different from baseline, regardless of correctness.
+
+Configured context capacity and actual prompt token count are separate. llama.cpp `/apply-template` serializes messages with the loaded model's chat template. The server tokenizer produces token IDs, and the runner verifies identical token sequences across configurations. Inputs that exceed context plus generation budget are skipped rather than silently truncated.
+
+RSS is a point sample of process-resident memory and includes more than KV storage. KV allocation is reported only when llama.cpp exposes explicit buffer size log lines.
+
+## Development & Verification
 
 ```bash
-(cd frontend && pnpm install && pnpm run build)
-uv run kv-cache-quality-benchmark dashboard
-```
-
-The dashboard browses saved results and clearly labels process RSS; it does not claim RSS is KV allocation. Its API has no authentication and binds to loopback by default; do not expose it to an untrusted network.
-
-Use a checked-in YAML preset with `uv run kv-cache-quality-benchmark run --config configs/smoke.yaml`. CLI arguments override preset values. The runner checkpoints completed trials to SQLite and JSONL, so interruption preserves finished attempts.
-
-## Scoring and interpretation
-
-Identifier answers use conservative exact matching with whitespace, quote/punctuation wrapper, and case normalization. Contradictory prose is not accepted. Unanswerable questions require `NOT_FOUND` (or a narrow explicit abstention) and a fabricated value is an unsupported assertion. Pairing distinguishes preserved successes, regressions, improvements, persistent failures, and unavailable comparisons.
-
-Configured context capacity and actual prompt token count are separate. llama.cpp `/apply-template` serializes messages with the loaded model's chat template. The server tokenizer produces token IDs, and the runner checks identical IDs across configurations. Inputs that exceed context plus generation budget are skipped rather than silently truncated. Fact positions are measured from the serialized prompt prefix in token space. Context-specific fixtures preserve the same underlying facts while changing fictional filler length.
-
-RSS is a point sample of process-resident memory and includes more than KV storage. KV allocation remains unavailable unless llama.cpp exposes a trustworthy measurement. Timing fields vary by llama.cpp build. Greedy decoding can still vary across hardware/builds. A result applies only to the recorded model hash, runtime, hardware, fixture set, and settings. Do not generalize a small sample or call a cache format safe based on no observed failures.
-
-## Development
-
-```bash
+# Install dependencies including dev extras
 uv sync --locked --extra dev
+
+# Run test suite
 uv run pytest
+
+# Static analysis and linting
 uv run ruff check src tests
+
+# Strict type checking
 uv run mypy src/kv_cache_quality_benchmark
 ```
 
-CI does not download model weights or run expensive inference. For design details see [methodology](docs/methodology.md), [metrics](docs/metrics.md), [limitations](docs/limitations.md), and [reproducibility](docs/reproducibility.md). KV Cache Quality Benchmark is MIT licensed. [llama.cpp is separately MIT licensed by the ggml authors](https://github.com/ggml-org/llama.cpp/blob/master/LICENSE); model weights remain under their own licenses. Check the terms for the model you use.
+## Contributing & Security
 
-## Contributing and security
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) before opening issues or pull requests. Report security vulnerabilities via [.github/SECURITY.md](.github/SECURITY.md).
 
-See the [contribution guide](CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md) before opening an issue or pull request. Report vulnerabilities using the process in the [security policy](.github/SECURITY.md), not in public issues.
+For methodology details, see [docs/methodology.md](docs/methodology.md), [docs/metrics.md](docs/metrics.md), [docs/limitations.md](docs/limitations.md), and [docs/reproducibility.md](docs/reproducibility.md).
+
+## License
+
+KV Cache Quality Benchmark is licensed under the [MIT License](LICENSE).
+[llama.cpp is separately MIT licensed by the ggml authors](https://github.com/ggml-org/llama.cpp/blob/master/LICENSE). Model weights are subject to their respective authors' licenses.
