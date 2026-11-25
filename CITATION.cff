@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use KV Cache Quality Benchmark in research or teaching, please cite this software."
+title: "KV Cache Quality Benchmark"
+version: 0.1.0
+authors:
+  - family-names: Rana
+    given-names: Jahanzaib
+    orcid: "https://orcid.org/0009-0006-7085-0440"
+repository-code: "https://github.com/ranajahanzaib/kv-cache-quality-benchmark"
+license: MIT
+abstract: "A local, reproducible test harness for comparing answer correctness, long-context fact retention, and memory use across llama.cpp KV-cache configurations."
+keywords:
+  - llama-cpp
+  - kv-cache
+  - llm-evaluation
+  - benchmark
+  - quantization
